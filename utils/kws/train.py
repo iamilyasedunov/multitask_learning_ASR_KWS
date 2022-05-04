@@ -1,4 +1,4 @@
-from dataset_utils import SpeechCommandDataset, DatasetDownloader
+from train_utils.kws.dataset_utils import SpeechCommandDataset, DatasetDownloader
 from model.model import CRNN
 from augmentations.augs_creation import AugsCreation
 from preprocessing.log_mel_spec import LogMelspec

@@ -1,0 +1,23 @@
+name: &name "DefaultAsrConfig"
+
+wandb:
+    name: multitask_learning
+
+asr:
+    data_path: ./data
+    train_url: train-clean-100
+    test_url: test-clean
+    device: cpu
+    n_cnn_layers: 3
+    n_rnn_layers: 5
+    rnn_dim: 512
+    n_class: 29
+    n_feats: 128
+    stride: 2
+    dropout: 0.1
+    learning_rate: 5e-4
+    batch_size: 20
+    epochs: 10
+    log_step: 100
+    save_dir: !!!
+    checkpont_path: !!!

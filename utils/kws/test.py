@@ -1,5 +1,4 @@
-from dataset_utils import DatasetDownloader, TrainDataset, SpeechCommandDataset
-from sklearn.model_selection import train_test_split
+from train_utils.kws.dataset_utils import DatasetDownloader, SpeechCommandDataset
 from preprocessing.log_mel_spec import LogMelspec
 from model.model import *
 from train_utils.utils import *
