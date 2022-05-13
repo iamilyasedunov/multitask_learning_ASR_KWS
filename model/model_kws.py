@@ -1,5 +1,5 @@
 from utils.utils import *
-from torch.quantization import QuantStub, DeQuantStub
+# from torch.quantization import QuantStub, DeQuantStub
 
 
 class Attention(nn.Module):
@@ -47,21 +47,21 @@ class CRNN(nn.Module):
         hidden_size = config.hidden_size * 2 if config.bidirectional else config.hidden_size
         self.attention = Attention(hidden_size)
         self.classifier = nn.Linear(hidden_size, config.num_classes)
-        self.quant = QuantStub()
-        self.dequant = DeQuantStub()
+        #self.quant = QuantStub()
+        #self.dequant = DeQuantStub()
 
     def forward(self, input_):
-        input_ = self.quant(input_)
+        #input_ = self.quant(input_)
         input_ = input_.unsqueeze(dim=1)
         conv_output = self.conv(input_).transpose(-1, -2)
-        conv_output = self.dequant(conv_output)
+        #conv_output = self.dequant(conv_output)
 
         gru_output, _ = self.gru(conv_output)
         context_vector = self.attention(gru_output)
 
-        context_vector = self.quant(context_vector)
+        #context_vector = self.quant(context_vector)
         output = self.classifier(context_vector)
-        output = self.dequant(output)
+        #output = self.dequant(output)
         return output
 
     def fuse_model(self):

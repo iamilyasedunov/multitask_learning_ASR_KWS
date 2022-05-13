@@ -39,7 +39,7 @@ class WanDBWriter:
             self.timer = datetime.now()
         else:
             duration = datetime.now() - self.timer
-            self.add_scalar("steps_per_sec", 1 / duration.total_seconds())
+            self.add_scalar(f"{self.mode}/steps_per_sec", 1 / duration.total_seconds())
             self.timer = datetime.now()
 
     def scalar_name(self, scalar_name):
@@ -47,12 +47,12 @@ class WanDBWriter:
 
     def add_scalar(self, scalar_name, scalar):
         self.wandb.log({
-            self.scalar_name(scalar_name): scalar,
+            f"{scalar_name}": scalar,
         }, step=self.step)
 
     def add_scalars(self, tag, scalars):
         self.wandb.log({
-            **{f"{scalar_name}_{tag}_{self.mode}": scalar for scalar_name, scalar in scalars.items()}
+            **{f"{tag}{scalar_name}": scalar for scalar_name, scalar in scalars.items()}
         }, step=self.step)
 
     def add_image(self, scalar_name, image):

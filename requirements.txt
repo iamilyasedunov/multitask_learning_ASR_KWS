@@ -1,9 +1,9 @@
 ﻿wandb~=0.12.4
 easydict~=1.9
-torchaudio~=0.9.1
+#torchaudio~=0.9.1
 ptflops
 thop
-torch~=1.9.1
+#torch~=1.9.1
 pandas~=0.25.3
 numpy~=1.18.0
 matplotlib~=3.3.2

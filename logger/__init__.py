@@ -14,7 +14,7 @@ def get_writer(config):
     log_levels = {0: logging.WARNING, 1: logging.INFO, 2: logging.DEBUG}
     logger_ = logging.getLogger(config["name"])
     logger_.setLevel(log_levels[config["verbosity"]])
-    save_dir = Path("saved/")
+    save_dir = Path(config["save_dir"])
     exper_name = config["exper_name"]
     run_id = datetime.now().strftime(r"%m%d_%H%M%S")
     _save_dir = save_dir / "models" / exper_name / run_id

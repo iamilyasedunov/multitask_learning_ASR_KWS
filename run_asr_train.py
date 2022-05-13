@@ -1,5 +1,7 @@
 import torchaudio
-import yaml
+from ruamel.yaml import YAML
+
+yaml = YAML()
 from torch import optim
 
 from logger import *
@@ -9,7 +11,7 @@ from preprocessing.data_processing import *
 from model.model_asr import SpeechRecognitionModel
 from train_utils.asr.train import IterMeter, Trainer
 from utils.asr.decoder import TextTransform
-
+from tqdm.auto import tqdm
 
 def main(config):
     config_asr = config["asr"]
@@ -58,9 +60,14 @@ def main(config):
                                               epochs=config_asr['epochs'],
                                               anneal_strategy='linear')
     iter_meter = IterMeter()
-    trainer = Trainer(model, device, train_loader, test_loader, criterion, optimizer, scheduler, config_asr["epochs"],
+    trainer = Trainer(model, device, train_loader, test_loader, criterion, optimizer, scheduler, 0,
                       iter_meter, writer, config_asr["log_step"], config)
-    for epoch in range(1, config_asr["epochs"] + 1):
+    if os.path.exists(config['asr']['checkpont_path']):
+        trainer.load_checkpoint()
+    else:
+        print("Attention! Checkpoint path is not exists, model train from starting initialization.")
+
+    for _ in tqdm(range(1, config_asr["epochs"] + 1), desc='main_loop', total=config_asr["epochs"]):
         trainer.train()
         trainer.test()
 
@@ -68,6 +75,5 @@ def main(config):
 if __name__ == "__main__":
     config_path = "other/default_config.yaml"
     with open(config_path, 'r') as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
-
+        config = yaml.load(f) #, Loader=yaml.Loader)
     main(config)
