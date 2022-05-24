@@ -3,7 +3,7 @@
 wandb:
     name: multitask_learning
     verbosity: 2
-    exper_name: test_of_asr_train
+    exper_name: test_of_multitask_train
     save_dir: /mount/export3/multitask_asr_kws_logs/
 asr:
     data_path: ./data
@@ -23,3 +23,9 @@ asr:
     log_step: 100
     save_dir: /mount/export3/multitask_asr_kws_logs/
     checkpont_path: /mount/export3/multitask_asr_kws_logs/models/test_of_asr_train/0511_205643/model_36_loss_0.365_wer_0.3462.pth
+
+multitask:
+    kws:
+        key_word: sheila
+        kws_data_percent: 1.0
+        train_test_split_percent: 0.8

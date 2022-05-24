@@ -147,7 +147,7 @@ class SpeechCommandDataset(Dataset):
 
         return {
             'wav': wav,
-            'keywors': instance['keyword'],
+            'keyword': instance['keyword'],
             'label': instance['label']
         }
 
