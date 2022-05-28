@@ -29,8 +29,8 @@ class MultitaskModel(nn.Module):
             nn.Dropout(dropout),
             nn.Linear(rnn_dim, n_class)
         )
-        self.attention = Attention(rnn_dim)
-        self.classifier_kws = nn.Linear(rnn_dim, num_kws_classes)
+        self.attention = Attention(rnn_dim * 2)
+        self.classifier_kws = nn.Linear(rnn_dim * 2, num_kws_classes)
 
     def forward_body(self, x):
         x = self.cnn(x)
@@ -43,12 +43,14 @@ class MultitaskModel(nn.Module):
         return x
 
     def forward_kws_head(self, x):
-        x = self.forward_body(x)
         x = self.attention(x)
         x = self.classifier_kws(x)
         return x
 
     def forward_asr_head(self, x):
-        x = self.forward_body(x)
         x = self.classifier_asr(x)
         return x
+
+    def forward(self, x):
+        x = self.forward_body(x)
+        return self.forward_asr_head(x), self.forward_kws_head(x)
