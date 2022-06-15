@@ -7,7 +7,7 @@ wandb:
     save_dir: /mount/export3/multitask_asr_kws_logs/
 asr:
     data_path: ./data
-    train_url: train-clean-100
+    train_url: train-clean-360
     test_url: test-clean
     device: cuda
     n_cnn_layers: 3
@@ -25,12 +25,14 @@ asr:
     checkpont_path: /mount/export3/multitask_asr_kws_logs/models/test_of_asr_train/0511_205643/model_36_loss_0.365_wer_0.3462.pth
 
 multitask:
-    learning_rate: 5e-3
+    data_percent: 10
+    learning_rate: 1e-4
     epochs: 100
     batch_size: 10
-    alpha_loss: 0.5
-    log_step: 100
-    checkpont_path: hui.pth
+    val_batch_size: 50
+    alpha_loss: 0.1
+    log_step: 200
+    checkpont_path: /mount/export3/multitask_asr_kws_logs/models/test_of_multitask_train_asr_kws/0605_202254/model_6_loss_0.334_wer_0.3347.pth
     kws:
         key_word: sheila
         kws_data_percent: 1.0

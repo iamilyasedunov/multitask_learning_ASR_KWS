@@ -37,7 +37,7 @@ def main(config):
                                    collate_fn=MultitaskCollator(transforms, 'train'),
                                    **kwargs)
     val_loader = data.DataLoader(dataset=val_multitask_set,
-                                 batch_size=config['multitask']['batch_size'],
+                                 batch_size=config['multitask']['val_batch_size'],
                                  shuffle=False,
                                  collate_fn=MultitaskCollator(transforms, 'val'),
                                  **kwargs)
@@ -47,10 +47,11 @@ def main(config):
                                      config_asr['dropout']
                                      ).to(device)
     optimizer = optim.AdamW(multitask_model.parameters(), config['multitask']['learning_rate'])
-    scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=config['multitask']['learning_rate'],
-                                              steps_per_epoch=int(len(train_loader)),
-                                              epochs=config['multitask']['epochs'],
-                                              anneal_strategy='linear')
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
+                                              #max_lr=config['multitask']['learning_rate'],
+                                              #steps_per_epoch=int(len(train_loader)),
+                                              #epochs=config['multitask']['epochs'],
+                                              #anneal_strategy='linear')
     iter_meter = IterMeter()
 
     trainer = Trainer(multitask_model, device, train_loader, val_loader, optimizer, scheduler, 0,
@@ -61,10 +62,13 @@ def main(config):
     else:
         print("Attention! Checkpoint path is not exists, model train from starting initialization.")
 
-    for _ in tqdm(range(1, config['multitask']["epochs"] + 1), desc='main_loop', total=config['multitask']["epochs"]):
+    for epoch in tqdm(range(1, config['multitask']["epochs"] + 1), desc='main_loop',
+                      total=config['multitask']["epochs"]):
         trainer.train()
-        # trainer.test()
-
+        trainer.test()
+        if epoch != 1:
+            trainer.save_checkpoint(epoch)
+        trainer.scheduler.step(trainer.last_test_loss)
 
 if __name__ == "__main__":
     config_path = "other/default_config.yaml"

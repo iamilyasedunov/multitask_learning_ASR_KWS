@@ -87,6 +87,7 @@ def prepare_datasets(config_asr, config_kws):
     val_set_kws = SpeechCommandDataset(csv=val_df)
 
     train_set_asr = torchaudio.datasets.LIBRISPEECH(config_asr["data_path"], url=config_asr["train_url"], download=True)
+    print(f"len: asr : {len(train_set_asr)}")
     val_set_asr = torchaudio.datasets.LIBRISPEECH(config_asr["data_path"], url=config_asr["test_url"], download=True)
     return train_set_kws, val_set_kws, train_set_asr, val_set_asr
 

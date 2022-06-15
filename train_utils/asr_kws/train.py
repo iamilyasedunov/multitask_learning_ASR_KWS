@@ -42,20 +42,21 @@ class Trainer:
 
             self.optimizer.zero_grad()
 
-            output_asr, _ = self.model(spec_asr)
+            output_asr = self.model.forward_asr_head(spec_asr)
             output_asr = F.log_softmax(output_asr, dim=2)
             output_asr = output_asr.transpose(0, 1)  # (time, batch, n_class)
             loss_asr = self.asr_criterion(output_asr, label_asr, input_length_asr, label_length_asr)
 
             spec_kws, label_kws = spec_kws.to(self.device), label_kws.to(self.device)
-            # output_kws = self.model.forward_kws_head(spec_kws)
-            _, output_kws = self.model(spec_kws)
+            output_kws = self.model.forward_kws_head(spec_kws)
+            #_, output_kws = self.model(spec_kws)
             loss_kws = self.kws_criterion(output_kws, label_kws)
 
             loss = (1 - self.alpha) * loss_asr + self.alpha * loss_kws
             loss.backward()
             self.optimizer.step()
-            self.scheduler.step()
+            #self.scheduler.step()
+
             if batch_idx % self.log_step == 0 and self.iter_meter.get() > self.log_step or batch_idx == data_len:
                 # asr metrics
                 decoded_preds, decoded_targets = self.text_transform.greedy_decoder(output_asr.transpose(0, 1),
@@ -73,7 +74,6 @@ class Trainer:
 
                 # log metrics
                 self.writer.add_scalars("train_asr/", {'step': self.iter_meter.get(), 'loss': loss_asr.item(),
-                                                       'learning_rate': self.scheduler.get_last_lr(),
                                                        'cer': test_cer.mean(), 'wer': test_wer.mean()})
 
                 self.writer.add_scalars("train_kws/", {'loss': loss_kws.item(),
@@ -83,8 +83,9 @@ class Trainer:
 
                 self.writer.add_spectrogram("train_asr/mel", spec_asr[0])
                 self.writer.add_spectrogram("train_kws/mel", spec_kws[0])
-
+                #lr = self.scheduler.get_lr()
                 self.writer.add_scalars("train/", {'loss': loss.item(),
+                                                   #'lr': lr,
                                                    'cnn_body_weight_mean': self.model.cnn.weight.mean().item(),
                                                    'kws_cls_weight_mean': self.model.classifier_kws.weight.mean().item(),
                                                    'asr_cls_weight_mean': self.model.classifier_asr[
@@ -92,9 +93,17 @@ class Trainer:
 
                 print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\twer: {:.6f}\tAcc: {:.6f}'.format(
                     self.epoch, batch_idx * len(spec_asr), data_len,
-                                100. * batch_idx / len(self.train_loader), loss.item(), test_wer.mean(), acc))
-
+                                100. * batch_idx / len(self.train_loader), loss.item(), test_wer.mean(), acc,)) # lr))
+                del probs_kws
+                del argmax_probs
             del _data
+            del spec_asr
+            del label_asr
+            del input_length_asr
+            del label_length_asr
+            del spec_kws
+            del label_kws
+            del output_asr, output_kws
             torch.cuda.empty_cache()
 
     def test(self):
@@ -108,13 +117,13 @@ class Trainer:
                 spec_asr, label_asr, input_length_asr, label_length_asr, spec_kws, label_kws = _data
                 spec_asr, label_asr = spec_asr.to(self.device), label_asr.to(self.device)
 
-                output_asr, _ = self.model(spec_asr)
+                output_asr = self.model.forward_asr_head(spec_asr)
                 output_asr = F.log_softmax(output_asr, dim=2)
                 output_asr = output_asr.transpose(0, 1)  # (time, batch, n_class)
                 loss_asr = self.asr_criterion(output_asr, label_asr, input_length_asr, label_length_asr)
                 spec_kws, label_kws = spec_kws.to(self.device), label_kws.to(self.device)
-                # output_kws = self.model.forward_kws_head(spec_kws)
-                _, output_kws = self.model(spec_kws)
+                output_kws = self.model.forward_kws_head(spec_kws)
+                #_, output_kws = self.model.forward_kws_head(spec_kws)
                 loss_kws = self.kws_criterion(output_kws, label_kws)
 
                 loss = (1 - self.alpha) * loss_asr + self.alpha * loss_kws
@@ -137,12 +146,14 @@ class Trainer:
                 FA_mean.append(FA)
                 FR_mean.append(FR)
                 acc_mean.append(acc)
+                del _data
+                torch.cuda.empty_cache()
 
         self.last_test_loss = test_loss
         if self.last_test_loss < self.min_val_loss:
             self.min_val_loss = self.last_test_loss
-            self.save_checkpoint(self.epoch)
-        self.avg_wer = avg_wer
+            #self.save_checkpoint(self.epoch)
+        self.avg_wer = test_wer.mean()
         self.writer.set_step(self.iter_meter.get(), "val")
         self.writer.add_scalars("val_asr/", {'step': self.iter_meter.get(), 'loss': np.array(loss_asr_mean).mean(),
                                              'cer': test_cer.mean(), 'wer': test_wer.mean()})
@@ -172,11 +183,14 @@ class Trainer:
         print(f"Saving checkpoint: {checkpoint_path}")
         save_obj = {'model': self.model.state_dict(),
                     'optimizer': self.optimizer.state_dict(),
+                    'scheduler': self.scheduler.state_dict(),
                     'criterion_asr': self.asr_criterion.state_dict(),
                     'criterion_kws': self.kws_criterion.state_dict(),
                     'steps': self.iter_meter.get(),
                     'epoch': epoch}
         torch.save(save_obj, checkpoint_path)
+        print(f"Сheckpoint: {checkpoint_path} saved.")
+
 
     def load_checkpoint(self):
         checkpoint_obj = torch.load(self.config['multitask']['checkpont_path'])
@@ -184,6 +198,7 @@ class Trainer:
         self.optimizer.load_state_dict(checkpoint_obj['optimizer'])
         self.asr_criterion.load_state_dict(checkpoint_obj['criterion_asr'])
         self.kws_criterion.load_state_dict(checkpoint_obj['criterion_kws'])
+        self.scheduler.load_state_dict(checkpoint_obj['scheduler'])
         self.iter_meter.set(checkpoint_obj['steps'] + 1)
         self.epoch = checkpoint_obj['epoch']
         print(f"Checkpoint loaded: {self.config['multitask']['checkpont_path']}")

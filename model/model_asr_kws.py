@@ -43,11 +43,13 @@ class MultitaskModel(nn.Module):
         return x
 
     def forward_kws_head(self, x):
+        x = self.forward_body(x)
         x = self.attention(x)
         x = self.classifier_kws(x)
         return x
 
     def forward_asr_head(self, x):
+        x = self.forward_body(x)
         x = self.classifier_asr(x)
         return x
 
