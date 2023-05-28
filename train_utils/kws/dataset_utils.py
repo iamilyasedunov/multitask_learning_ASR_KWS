@@ -118,18 +118,18 @@ class SpeechCommandDataset(Dataset):
             ]
 
             triplets = []
-            for keyword in all_keywords:
+            for idx, keyword in enumerate(all_keywords):
                 paths = (path2dir / keyword).rglob('*.wav')
                 if keyword in keywords:
                     for path2wav in paths:
-                        triplets.append((path2wav.as_posix(), keyword, 1))
+                        triplets.append((path2wav.as_posix(), keyword, 1, idx))
                 else:
                     for path2wav in paths:
-                        triplets.append((path2wav.as_posix(), keyword, 0))
+                        triplets.append((path2wav.as_posix(), keyword, 0, idx))
 
             self.csv = pd.DataFrame(
                 triplets,
-                columns=['path', 'keyword', 'label']
+                columns=['path', 'keyword', 'label', 'label_cmd']
             )
 
         else:
@@ -148,7 +148,8 @@ class SpeechCommandDataset(Dataset):
         return {
             'wav': wav,
             'keyword': instance['keyword'],
-            'label': instance['label']
+            'label': instance['label'],
+            'label_cmd': instance['label_cmd'],
         }
 
     def __len__(self):

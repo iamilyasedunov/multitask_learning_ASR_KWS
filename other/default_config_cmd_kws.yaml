@@ -1,0 +1,46 @@
+# name: &name "DefaultAsrConfig"
+
+wandb:
+    name: multitask_learning
+    verbosity: 2
+    exper_name: test_of_multitask_train_asr_kws
+    save_dir: /home/sedunov_ia/project_mtl/multitask_logs_cmd_emo_kws/wandb/
+asr:
+    data_path: ./data
+    train_url: train-clean-360
+    test_url: test-clean
+    device: cuda:3
+    n_cnn_layers: 3
+    n_rnn_layers: 5
+    rnn_dim: 512
+    n_class: 29
+    n_feats: 128
+    stride: 2
+    dropout: 0.1
+    learning_rate: 1e-3
+    batch_size: 100
+    epochs: 100
+    log_step: 10
+    save_dir: /home/sedunov_ia/project_mtl/multitask_logs_cmd_emo_kws_dusha/
+    checkpont_path: /home/sedunov_ia/project_mtl/multitask_logs_cmd_emo_kws/wandb/models/test_of_multitask_train_asr_kws/0514_165908/model_16_loss_0.3_kws_cmd_emo.pth
+
+multitask:
+    data_percent: 10
+    learning_rate: 1e-4
+    epochs: 100
+    batch_size: 50
+    val_batch_size: 100
+    alpha_loss: 0.1
+    log_step: 10
+    checkpont_path: /home/sedunov_ia/project_mtl/multitask_logs_cmd_emo_kws/wandb/models/test_of_multitask_train_asr_kws/0514_165908/model_16_loss_0.3_kws_cmd_emo.pth
+    kws_cmd:
+        num_cmd_classes: 30
+        key_word: sheila
+        kws_data_percent: 0.3
+        train_test_split_percent: 0.8
+        train_path: /home/sedunov_ia/project_mtl/multitask_learning_ASR_KWS/other/train_kws_cmd.csv
+        val_path: /home/sedunov_ia/project_mtl/multitask_learning_ASR_KWS/other/val_kws_cmd.csv
+    emo:
+        num_class: 4
+        train_path: /home/sedunov_ia/emotion_recognition/data_dusha_and_prev_emo_35k_per_class/train_before_gsm_sample.csv
+        val_path: /home/sedunov_ia/emotion_recognition/data_dusha_and_prev_emo_35k_per_class/test_before_gsm_sample.csv

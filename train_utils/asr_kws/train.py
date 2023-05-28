@@ -5,7 +5,7 @@ from utils.asr.decoder import TextTransform
 import numpy as np
 from utils.asr.metrics import *
 from utils.utils import count_FA_FR
-
+from datetime import datetime
 
 class Trainer:
     def __init__(self, model, device, train_loader, test_loader, optimizer, scheduler, epoch, iter_meter,
@@ -16,6 +16,7 @@ class Trainer:
         self.test_loader = test_loader
         self.asr_criterion = torch.nn.CTCLoss(blank=28).to(device)
         self.kws_criterion = torch.nn.CrossEntropyLoss()
+        self.emo_criterion = torch.nn.CrossEntropyLoss()
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.epoch = epoch
@@ -37,11 +38,14 @@ class Trainer:
         for batch_idx, _data in tqdm(enumerate(self.train_loader), desc="train", total=len(self.train_loader)):
             self.iter_meter.step()
             self.writer.set_step(self.iter_meter.get(), "train")
-            spec_asr, label_asr, input_length_asr, label_length_asr, spec_kws, label_kws = _data
+            start = datetime.now()
+            spec_asr, label_asr, input_length_asr, label_length_asr, spec_kws, label_kws, spec_emo, label_emo = _data
             spec_asr, label_asr = spec_asr.to(self.device), label_asr.to(self.device)
+            # print(f"get_data: {(datetime.now() - start).total_seconds()}")
 
             self.optimizer.zero_grad()
 
+            start = datetime.now()
             output_asr = self.model.forward_asr_head(spec_asr)
             output_asr = F.log_softmax(output_asr, dim=2)
             output_asr = output_asr.transpose(0, 1)  # (time, batch, n_class)
@@ -49,10 +53,16 @@ class Trainer:
 
             spec_kws, label_kws = spec_kws.to(self.device), label_kws.to(self.device)
             output_kws = self.model.forward_kws_head(spec_kws)
-            #_, output_kws = self.model(spec_kws)
             loss_kws = self.kws_criterion(output_kws, label_kws)
 
-            loss = (1 - self.alpha) * loss_asr + self.alpha * loss_kws
+            spec_emo, label_emo = spec_emo.to(self.device), label_emo.to(self.device)
+            output_emo = self.model.forward_emo_head(spec_emo)
+            loss_emo = self.emo_criterion(output_emo, label_emo)
+            # print(f"infer: {(datetime.now() - start).total_seconds()}")
+
+            #_, output_kws = self.model(spec_kws)
+            alpha = 1 / 3
+            loss = alpha * loss_asr + alpha * loss_kws + alpha * loss_emo
             loss.backward()
             self.optimizer.step()
             #self.scheduler.step()
@@ -70,16 +80,27 @@ class Trainer:
                 probs_kws = F.softmax(output_kws, dim=-1)
                 argmax_probs = torch.argmax(probs_kws, dim=-1)
                 FA, FR = count_FA_FR(argmax_probs, label_kws)
-                acc = torch.sum(argmax_probs == label_kws).item() / torch.numel(argmax_probs)
+                acc_kws = torch.sum(argmax_probs == label_kws).item() / torch.numel(argmax_probs)
+                # emo metrics
+                probs_emo = F.softmax(output_emo, dim=-1)
+                argmax_probs = torch.argmax(probs_emo, dim=-1)
+                acc_emo = torch.sum(argmax_probs == label_emo).item() / torch.numel(argmax_probs)
+                # print(probs_emo.detach().cpu().numpy())
+                # print(argmax_probs.cpu().numpy())
+                # print(label_emo.cpu().numpy())
+                # print(torch.numel(argmax_probs))
 
                 # log metrics
                 self.writer.add_scalars("train_asr/", {'step': self.iter_meter.get(), 'loss': loss_asr.item(),
                                                        'cer': test_cer.mean(), 'wer': test_wer.mean()})
 
                 self.writer.add_scalars("train_kws/", {'loss': loss_kws.item(),
-                                                       'acc': acc,
+                                                       'acc': acc_kws,
                                                        'FA': FA,
                                                        'FR': FR})
+
+                self.writer.add_scalars("train_emo/", {'loss': loss_emo.item(),
+                                        'acc': acc_emo})
 
                 self.writer.add_spectrogram("train_asr/mel", spec_asr[0])
                 self.writer.add_spectrogram("train_kws/mel", spec_kws[0])
@@ -91,9 +112,9 @@ class Trainer:
                                                    'asr_cls_weight_mean': self.model.classifier_asr[
                                                        0].weight.mean().item()})
 
-                print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\twer: {:.6f}\tAcc: {:.6f}'.format(
-                    self.epoch, batch_idx * len(spec_asr), data_len,
-                                100. * batch_idx / len(self.train_loader), loss.item(), test_wer.mean(), acc,)) # lr))
+                # print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\twer: {:.6f}\tAcc_kws: {:.6f}\tAcc_emo: {:.6f}'.format(
+                #     self.epoch, batch_idx * len(spec_asr), data_len,
+                #                 100. * batch_idx / len(self.train_loader), loss.item(), test_wer.mean(), acc_kws, acc_emo)) # lr))
                 del probs_kws
                 del argmax_probs
             del _data
@@ -101,9 +122,9 @@ class Trainer:
             del label_asr
             del input_length_asr
             del label_length_asr
-            del spec_kws
-            del label_kws
-            del output_asr, output_kws
+            del spec_kws, spec_emo
+            del label_kws, label_emo
+            del output_asr, output_kws, output_emo
             torch.cuda.empty_cache()
 
     def test(self):
@@ -111,10 +132,10 @@ class Trainer:
         self.model.eval()
         test_loss = 0
         test_cer, test_wer = np.array([]), np.array([])
-        loss_asr_mean, loss_kws_mean, FA_mean, FR_mean, acc_mean = [], [], [], [], []
+        loss_asr_mean, loss_kws_mean, loss_emo_mean, FA_mean, FR_mean, acc_mean_kws, acc_mean_emo = [], [], [], [], [], [], []
         with torch.no_grad():
             for i, _data in tqdm(enumerate(self.test_loader), desc="val", total=len(self.test_loader)):
-                spec_asr, label_asr, input_length_asr, label_length_asr, spec_kws, label_kws = _data
+                spec_asr, label_asr, input_length_asr, label_length_asr, spec_kws, label_kws, spec_emo, label_emo = _data
                 spec_asr, label_asr = spec_asr.to(self.device), label_asr.to(self.device)
 
                 output_asr = self.model.forward_asr_head(spec_asr)
@@ -126,10 +147,17 @@ class Trainer:
                 #_, output_kws = self.model.forward_kws_head(spec_kws)
                 loss_kws = self.kws_criterion(output_kws, label_kws)
 
-                loss = (1 - self.alpha) * loss_asr + self.alpha * loss_kws
+                spec_emo, label_emo = spec_emo.to(self.device), label_emo.to(self.device)
+                output_emo = self.model.forward_emo_head(spec_emo)
+                loss_emo = self.emo_criterion(output_emo, label_emo)
+
+                alpha = 1/3
+                loss = alpha * loss_asr + alpha * loss_kws + alpha * loss_emo
 
                 loss_asr_mean.append(loss_asr.item())
                 loss_kws_mean.append(loss_kws.item())
+                loss_emo_mean.append(loss_emo.item())
+
                 test_loss += loss.item() / len(self.test_loader)
 
                 decoded_preds, decoded_targets = self.text_transform.greedy_decoder(output_asr.transpose(0, 1),
@@ -145,7 +173,13 @@ class Trainer:
                 acc = torch.sum(argmax_probs == label_kws).item() / torch.numel(argmax_probs)
                 FA_mean.append(FA)
                 FR_mean.append(FR)
-                acc_mean.append(acc)
+                acc_mean_kws.append(acc)
+
+                # emo metrics
+                probs_emo = F.softmax(output_emo, dim=-1)
+                argmax_probs = torch.argmax(probs_emo, dim=-1)
+                acc_emo = torch.sum(argmax_probs == label_emo).item() / torch.numel(argmax_probs)
+                acc_mean_emo.append(acc_emo)
                 del _data
                 torch.cuda.empty_cache()
 
@@ -159,18 +193,19 @@ class Trainer:
                                              'cer': test_cer.mean(), 'wer': test_wer.mean()})
 
         self.writer.add_scalars("val_kws/", {'loss': np.array(loss_kws_mean).mean(),
-                                             'acc': np.array(acc_mean).mean(),
+                                             'acc': np.array(acc_mean_kws).mean(),
                                              'FA': np.array(FA_mean).mean(),
                                              'FR': np.array(FR_mean).mean()})
-
+        self.writer.add_scalars("val_emo/", {'loss': np.array(loss_emo_mean).mean(),
+                                             'acc': np.array(acc_mean_emo).mean()})
         self.writer.add_spectrogram("val_asr/mel", spec_asr[0])
         self.writer.add_spectrogram("val_kws/mel", spec_kws[0])
+        self.writer.add_spectrogram("val_emo/mel", spec_emo[0])
 
         self.writer.add_scalars("val/", {'loss': test_loss,
                                          'cnn_body_weight_mean': self.model.cnn.weight.mean().item(),
                                          'kws_cls_weight_mean': self.model.classifier_kws.weight.mean().item(),
-                                         'asr_cls_weight_mean': self.model.classifier_asr[
-                                             0].weight.mean().item()})
+                                         'asr_cls_weight_mean': self.model.classifier_asr[0].weight.mean().item()})
 
         print(
             'Test set: Average loss: {:.4f}, Average CER: {:4f} Average WER: {:.4f}\n'.format(test_loss,
@@ -186,6 +221,7 @@ class Trainer:
                     'scheduler': self.scheduler.state_dict(),
                     'criterion_asr': self.asr_criterion.state_dict(),
                     'criterion_kws': self.kws_criterion.state_dict(),
+                    'criterion_emo': self.emo_criterion.state_dict(),
                     'steps': self.iter_meter.get(),
                     'epoch': epoch}
         torch.save(save_obj, checkpoint_path)
@@ -198,6 +234,7 @@ class Trainer:
         self.optimizer.load_state_dict(checkpoint_obj['optimizer'])
         self.asr_criterion.load_state_dict(checkpoint_obj['criterion_asr'])
         self.kws_criterion.load_state_dict(checkpoint_obj['criterion_kws'])
+        self.emo_criterion.load_state_dict(checkpoint_obj['criterion_emo'])
         self.scheduler.load_state_dict(checkpoint_obj['scheduler'])
         self.iter_meter.set(checkpoint_obj['steps'] + 1)
         self.epoch = checkpoint_obj['epoch']

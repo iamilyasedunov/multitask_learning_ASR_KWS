@@ -1,9 +1,11 @@
-﻿wandb~=0.12.4
+﻿# python3.8 -m pip install torch==1.9.1+cu111 torchvision==0.10.1+cu111 torchaudio==0.9.1 -f https://download.pytorch.org/whl/torch_stable.html
+# python3.8 -m pip install --ignore-installed ruamel.yaml
+wandb~=0.12.4
 easydict~=1.9
-#torchaudio~=0.9.1
+# torchaudio~=0.9.1
 ptflops
 thop
-#torch~=1.9.1
+# torch~=1.9.1
 pandas~=0.25.3
 numpy~=1.18.0
 matplotlib~=3.3.2

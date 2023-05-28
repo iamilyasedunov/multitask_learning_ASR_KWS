@@ -19,6 +19,7 @@ def main(config):
     use_cuda = torch.cuda.is_available()
     torch.manual_seed(7)
     device = torch.device(config_asr["device"])
+    print(f"Device name: {torch.cuda.get_device_name(device)}")
     if not os.path.isdir(config_asr["data_path"]):
         os.makedirs(config_asr["data_path"])
 

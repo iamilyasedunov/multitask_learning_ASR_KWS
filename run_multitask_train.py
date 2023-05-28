@@ -16,18 +16,20 @@ from tqdm.auto import tqdm
 
 def main(config):
     config_asr = config["asr"]
-    config_kws = config['multitask']['kws']
+    config_kws = config['multitask']['kws_cmd']
+    config_emo = config['multitask']['emo']
     writer = get_writer(config["wandb"])
     use_cuda = torch.cuda.is_available()
     torch.manual_seed(7)
     device = torch.device(config_asr["device"])
+    print(f"Device name: {torch.cuda.get_device_name(device)}")
     if not os.path.isdir(config_asr["data_path"]):
         os.makedirs(config_asr["data_path"])
 
-    train_set_kws, val_set_kws, train_set_asr, val_set_asr = prepare_datasets(config_asr, config_kws)
-
-    train_multitask_set = AsrMultitaskDataSet(train_set_asr, train_set_kws)
-    val_multitask_set = AsrMultitaskDataSet(val_set_asr, val_set_kws)
+    train_set_kws, val_set_kws, train_set_asr, val_set_asr, train_set_emo, val_set_emo = prepare_datasets(config_asr, config_kws, config_emo)
+    print(f"train_set_kws: {len(train_set_kws)}, val_set_kws: {len(val_set_kws)}, train_set_asr: {len(train_set_asr)}, val_set_asr: {len(val_set_asr)}, train_set_emo: {len(train_set_emo)}, val_set_emo: {len(val_set_emo)}")
+    train_multitask_set = AsrMultitaskDataSet(train_set_asr, train_set_kws, train_set_emo)
+    val_multitask_set = AsrMultitaskDataSet(val_set_asr, val_set_kws, val_set_emo)
 
     transforms = get_transforms()
     kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
@@ -43,7 +45,7 @@ def main(config):
                                  **kwargs)
 
     multitask_model = MultitaskModel(config_asr['n_cnn_layers'], config_asr['n_rnn_layers'], config_asr['rnn_dim'],
-                                     config_asr['n_class'], config_asr['n_feats'], config_asr['stride'],
+                                     config_asr['n_class'], config_asr['n_feats'], config_emo['num_class'], config_asr['stride'],
                                      config_asr['dropout']
                                      ).to(device)
     optimizer = optim.AdamW(multitask_model.parameters(), config['multitask']['learning_rate'])

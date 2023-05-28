@@ -6,7 +6,7 @@ import torch.nn.functional as F
 
 
 class MultitaskModel(nn.Module):
-    def __init__(self, n_cnn_layers, n_rnn_layers, rnn_dim, n_class, n_feats, stride=2, dropout=0.1):
+    def __init__(self, n_cnn_layers, n_rnn_layers, rnn_dim, n_class, n_feats, num_emo_classes, num_cmd_classes, stride=2, dropout=0.1):
         super(MultitaskModel, self).__init__()
         num_kws_classes = 2
         n_feats = n_feats // 2
@@ -31,6 +31,8 @@ class MultitaskModel(nn.Module):
         )
         self.attention = Attention(rnn_dim * 2)
         self.classifier_kws = nn.Linear(rnn_dim * 2, num_kws_classes)
+        self.classifier_emo = nn.Linear(rnn_dim * 2, num_emo_classes)
+        self.classifier_cmd = nn.Linear(rnn_dim * 2, num_cmd_classes)
 
     def forward_body(self, x):
         x = self.cnn(x)
@@ -53,6 +55,18 @@ class MultitaskModel(nn.Module):
         x = self.classifier_asr(x)
         return x
 
+    def forward_emo_head(self, x):
+        x = self.forward_body(x)
+        x = self.attention(x)
+        x = self.classifier_emo(x)
+        return x
+
+    def forward_cmd_head(self, x):
+        x = self.forward_body(x)
+        x = self.attention(x)
+        x = self.classifier_cmd(x)
+        return x
+
     def forward(self, x):
         x = self.forward_body(x)
-        return self.forward_asr_head(x), self.forward_kws_head(x)
+        return self.forward_asr_head(x), self.forward_kws_head(x), self.forward_emo_head(x)

@@ -4,12 +4,12 @@ wandb:
     name: multitask_learning
     verbosity: 2
     exper_name: test_of_multitask_train_asr_kws
-    save_dir: /mount/export3/multitask_asr_kws_logs/
+    save_dir: /home/sedunov_ia/project_mtl/multitask_logs/wandb/
 asr:
     data_path: ./data
     train_url: train-clean-360
     test_url: test-clean
-    device: cuda
+    device: cuda:3
     n_cnn_layers: 3
     n_rnn_layers: 5
     rnn_dim: 512
@@ -18,22 +18,29 @@ asr:
     stride: 2
     dropout: 0.1
     learning_rate: 1e-3
-    batch_size: 20
+    batch_size: 100
     epochs: 100
-    log_step: 100
-    save_dir: /mount/export3/multitask_asr_kws_logs/
-    checkpont_path: /mount/export3/multitask_asr_kws_logs/models/test_of_asr_train/0511_205643/model_36_loss_0.365_wer_0.3462.pth
+    log_step: 3000
+    save_dir: /home/sedunov_ia/project_mtl/multitask_logs/
+    checkpont_path: /home/sedunov_ia/project_mtl/multitask_logs/models/test_of_asr_train/
 
 multitask:
     data_percent: 10
     learning_rate: 1e-4
     epochs: 100
-    batch_size: 10
+    batch_size: 25
     val_batch_size: 50
     alpha_loss: 0.1
-    log_step: 200
-    checkpont_path: /mount/export3/multitask_asr_kws_logs/models/test_of_multitask_train_asr_kws/0605_202254/model_6_loss_0.334_wer_0.3347.pth
-    kws:
+    log_step: 400
+    checkpont_path: /home/sedunov_ia/project_mtl/multitask_logs/wandb/models/test_of_multitask_train_asr_kws/0512_010620/model_5_loss_0.711_wer_0.8558.pth
+    kws_cmd:
+        num_cmd_classes: 30
         key_word: sheila
         kws_data_percent: 1.0
         train_test_split_percent: 0.8
+        train_path: /home/sedunov_ia/project_mtl/multitask_learning_ASR_KWS/other/train_kws.csv
+        val_path: /home/sedunov_ia/project_mtl/multitask_learning_ASR_KWS/other/val_kws.csv
+    emo:
+        num_class: 6
+        train_path: /home/sedunov_ia/project_mtl/multitask_learning_ASR_KWS/data/train_emo_en_resampled.csv
+        val_path: /home/sedunov_ia/project_mtl/multitask_learning_ASR_KWS/data/test_emo_en_resampled.csv
