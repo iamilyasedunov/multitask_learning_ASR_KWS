@@ -12,5 +12,6 @@ matplotlib~=3.3.2
 tqdm~=4.41.1
 ipython~=7.18.1
 tensorboard~=2.4.1
-sklearn~=0.0
+# sklearn~=0.0
 scikit-learn~=1.0.1
+gdown

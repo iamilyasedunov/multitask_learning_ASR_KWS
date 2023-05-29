@@ -31,5 +31,4 @@ python3.8 -m run_cmd_kws_emo_multitask_train
 ```
 other/asr_kws_cmd_loss_0.192.pth # asr, kws, cmd
 other/kws_cmd_emo_loss_0.385.pth # kws, cmd, emo
-
 ```
