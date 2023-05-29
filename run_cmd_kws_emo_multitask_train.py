@@ -4,8 +4,8 @@ from ruamel.yaml import YAML
 yaml = YAML()
 from torch import optim
 import torch
-from train_utils.asr_kws_cmd.dataset_utils import prepare_datasets, AsrThreeTaskDataSet, MultitaskCollator, get_transforms
-from train_utils.asr_kws_cmd.train import Trainer
+from train_utils.cmd_kws_emo.dataset_utils import prepare_datasets, CmdKwsEmoDataSet, MultitaskCollator, get_transforms
+from train_utils.cmd_kws_emo.train import Trainer
 from logger import *
 import os
 import torch.utils.data as data
@@ -17,6 +17,7 @@ from tqdm.auto import tqdm
 def main(config):
     config_asr = config['asr']
     config_kws = config['multitask']['kws_cmd']
+    config_emo = config['multitask']['emo']
 
     use_cuda = torch.cuda.is_available()
     torch.manual_seed(7)
@@ -25,12 +26,10 @@ def main(config):
     if not os.path.isdir(config_asr["data_path"]):
         os.makedirs(config_asr["data_path"])
 
-    train_set_kws_cmd, val_set_kws_cmd, train_set_asr, val_set_asr = prepare_datasets(config_asr, config_kws)
-    print(f"train_set_kws_cmd: {len(train_set_kws_cmd)}, val_set_kws: {len(val_set_kws_cmd)}")
-    print(f"train_set_asr: {len(train_set_asr)}, val_set_asr: {len(val_set_asr)}")
-
-    train_multitask_set = AsrThreeTaskDataSet(train_set_asr, train_set_kws_cmd)
-    val_multitask_set = AsrThreeTaskDataSet(val_set_asr, val_set_kws_cmd)
+    train_set_kws_cmd, val_set_kws_cmd, train_set_emo, val_set_emo = prepare_datasets(config_kws, config_emo)
+    print(f"train_set_kws_cmd: {len(train_set_kws_cmd)}, val_set_kws: {len(val_set_kws_cmd)}, train_set_emo: {len(train_set_emo)}, val_set_emo: {len(val_set_emo)}")
+    train_multitask_set = CmdKwsEmoDataSet(train_set_kws_cmd, train_set_emo)
+    val_multitask_set = CmdKwsEmoDataSet(val_set_kws_cmd, val_set_emo)
 
     transforms = get_transforms()
     kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
@@ -46,7 +45,7 @@ def main(config):
                                  **kwargs)
 
     multitask_model = MultitaskModel(config_asr['n_cnn_layers'], config_asr['n_rnn_layers'], config_asr['rnn_dim'],
-                                     config_asr['n_class'], config_asr['n_feats'], 6, config_kws['num_cmd_classes'], config_asr['stride'],
+                                     config_asr['n_class'], config_asr['n_feats'], config_emo['num_class'], config_kws['num_cmd_classes'], config_asr['stride'],
                                      config_asr['dropout']
                                      ).to(device)
     optimizer = optim.AdamW(multitask_model.parameters(), config['multitask']['learning_rate'])
@@ -62,10 +61,10 @@ def main(config):
                       iter_meter, writer, config['multitask']["log_step"], config)
     print(config['multitask']['checkpont_path'])
     if os.path.exists(config['multitask']['checkpont_path']):
-        trainer.load_checkpoint(config['multitask']['strict_load'])
+        trainer.load_checkpoint()
     else:
         print("Attention! Checkpoint path is not exists, model train from starting initialization.")
-    print(multitask_model)
+
     for epoch in tqdm(range(1, config['multitask']["epochs"] + 1), desc='main_loop',
                       total=config['multitask']["epochs"]):
         trainer.train()
@@ -75,7 +74,7 @@ def main(config):
         trainer.scheduler.step(trainer.last_test_loss)
 
 if __name__ == "__main__":
-    config_path = "other/default_config_cmd_kws_asr.yaml"
+    config_path = "other/default_config_cmd_kws.yaml"
     with open(config_path, 'r') as f:
         config = yaml.load(f)  # , Loader=yaml.Loader)
     main(config)
